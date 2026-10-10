@@ -103,6 +103,11 @@ class USBTransport:
             try:
                 return self._ep_out.write(data, timeout=timeout_ms)
             except usb.core.USBError as e:
+                if "pipe" in str(e).lower():  # endpoint STALL
+                    raise TransportError(
+                        "USB write STALL: adapter is unpowered or busy — "
+                        "connect it to the car (ignition ON) or a 12V supply"
+                    ) from e
                 raise TransportError(f"USB write error: {e}") from e
 
     def read(self, size: int = 4096,
@@ -117,6 +122,11 @@ class USBTransport:
             except usb.core.USBError as e:
                 if "timeout" in str(e).lower():
                     return None
+                if "pipe" in str(e).lower():  # endpoint STALL
+                    raise TransportError(
+                        "USB read STALL: adapter is unpowered or busy — "
+                        "connect it to the car (ignition ON) or a 12V supply"
+                    ) from e
                 raise TransportError(f"USB read error: {e}") from e
 
     def read_all(self, timeout_ms: int = DEFAULT_READ_TIMEOUT,

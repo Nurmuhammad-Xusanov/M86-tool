@@ -174,7 +174,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     _setup_logging(args.verbose)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except Exception as e:
+        import traceback
+        if args.verbose:
+            traceback.print_exc()
+        print(f"error: {e}")
+        return 1
 
 
 if __name__ == "__main__":

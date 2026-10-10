@@ -64,20 +64,31 @@ class SM2:
         except TransportError as e:
             raise SM2Error(str(e)) from e
 
-        r = self.cmd(Cmd.INIT)
-        if r is None:
-            raise SM2Error("no response to INIT (device in bootloader or needs 12V?)")
-        if r[0] == Cmd.NACK:
-            raise SM2Error("device rejected INIT")
+        try:
+            r = self.cmd(Cmd.INIT)
+            if r is None:
+                raise SM2Error(
+                    "no response to INIT — adapter has no power. "
+                    "Connect it to the car and turn the ignition ON (do not "
+                    "start the engine), or use a 12V supply."
+                )
+            if r[0] == Cmd.NACK:
+                raise SM2Error("device rejected INIT")
 
-        if self.echo(b"M86") is None:
-            log.warning("ECHO gave no response")
+            if self.echo(b"M86") is None:
+                log.warning("ECHO gave no response")
 
-        r = self.cmd(Cmd.DEVICE_INFO)
-        if r and r[0] == Cmd.SUCCESS and r[1]:
-            self._info = self._c.decode_device_info(r[1])
+            r = self.cmd(Cmd.DEVICE_INFO)
+            if r and r[0] == Cmd.SUCCESS and r[1]:
+                self._info = self._c.decode_device_info(r[1])
 
-        self.cmd(Cmd.CLEAR_FIFO)
+            self.cmd(Cmd.CLEAR_FIFO)
+        except TransportError as e:
+            raise SM2Error(
+                f"adapter did not respond to commands ({e}). "
+                "It likely lacks 12V power — connect it to the car with the "
+                "ignition ON (do not start the engine)."
+            ) from e
         self._open = True
         return self._info
 

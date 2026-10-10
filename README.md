@@ -409,6 +409,7 @@ This is the quickest way to confirm the CAN-channel command bytes for your unit.
 |---|---|
 | `no Scanmatik found (VID 0x20A2)` | Not plugged in, or udev rule missing → install `udev/52-scanmatik.rules` |
 | `Scanmatik not found ... check udev permissions` | No permission on the USB device → udev rule + replug |
+| `USB read/write STALL: adapter is unpowered or busy` | Adapter has **no 12 V** (USB-only). Connect it to the car and turn the ignition ON (do not start the engine), or use a 12 V supply |
 | `no response to INIT` | Adapter in bootloader, or no **12 V** on the OBD connector |
 | `timeout waiting for flow control` | Wrong CAN bitrate/IDs, or ECU not in an active diagnostic session |
 | Garbage / `checksum mismatch` | Noise on the bus, or a firmware whose framing differs → run `probe_device.py` |
