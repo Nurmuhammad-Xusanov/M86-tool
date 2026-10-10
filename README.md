@@ -8,6 +8,7 @@
   <a href="#"><img alt="Bus" src="https://img.shields.io/badge/CAN-ISO--TP%20%2F%20UDS-22d3ee.svg"></a>
   <a href="#"><img alt="Adapter" src="https://img.shields.io/badge/adapter-Scanmatik%20SM2-34d399.svg"></a>
   <a href="pyproject.toml"><img alt="Dependency" src="https://img.shields.io/badge/deps-pyusb%20%2B%20libusb-informational.svg"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-yellow.svg"></a>
 </p>
 
 <h1 align="center">m86tool</h1>
@@ -426,7 +427,14 @@ ECU writes can brick a vehicle — always keep a full read-only backup first.
 Protocol facts reused from the MIT-licensed
 [`sm2can`](https://github.com/aldoguzman97/sm2can) project
 (© 2026 Aldo Guzman); that attribution is preserved in
-[`m86tool/sm2/protocol.py`](m86tool/sm2/protocol.py).
+[`m86tool/sm2/protocol.py`](m86tool/sm2/protocol.py) and its license text in
+[`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt).
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE) © 2026 Nurmuhammad Xusanov.
 
 ---
 
