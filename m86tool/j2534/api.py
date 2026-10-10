@@ -98,7 +98,6 @@ class J2534Impl:
         self.devices = []
         self.last_error: str = "NOERROR"
 
-    @property
     def _find_open_device(self, devid: int) -> Optional[DeviceHandle]:
         if 0 <= devid < len(self.devices):
             return self.devices[devid]
@@ -301,8 +300,8 @@ class J2534Impl:
     def PassThruIoctl(self, ch_id_or_dev: int, ioctl: int, pInput, pOutput) -> int:
         # minimal
         ch = self._resolve_ch(ch_id_or_dev)
-        if not ch:
-            pass
+        if ch is None:
+            return ERR_CHANNEL_NOT_OPEN
         if ioctl == CLEAR_MSG_FILTERS:
             ch.filters.clear()
             ch.flow_ctrl_set = False

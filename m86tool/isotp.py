@@ -103,7 +103,8 @@ class IsoTp:
             if pci == _PCI_FF:
                 total = ((f.data[0] & 0x0F) << 8) | f.data[1]
                 buf = bytearray(f.data[2:8])
-                self.sm2.send(self.rx_id,
+                # flow control is sent on the tester transmit ID (tx_id)
+                self.sm2.send(self.tx_id,
                               _pad(bytes([_PCI_FC, 0x00, 0x00]), fill=self.tx_pad))
                 return self._recv_consecutive(buf, total, deadline)
             # ignore FC / stray frames
