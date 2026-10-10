@@ -1,7 +1,7 @@
 [project]
 name = "m86tool"
 version = "0.1.0"
-description = "Own M86 ECU tooling over Scanmatik SM2 on Linux"
+description = "Own M86 ECU tooling over Scanmatik SM2 (USB) and SM3 (Wi-Fi)"
 requires-python = ">=3.10"
 dependencies = ["pyusb>=1.2.0"]
 

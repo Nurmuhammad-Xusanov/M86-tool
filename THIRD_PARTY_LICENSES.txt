@@ -39,3 +39,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------
+
+opendash
+--------
+Source : https://github.com/PabloSoage/opendash
+License : GNU General Public License v3.0
+
+The Scanmatik SM3 protocol was recovered from the adapter by the `opendash`
+project. m86tool/sm3/ is an independent reimplementation in Python written from
+that project's written protocol description. No `opendash` source code is
+copied: the `h4` contribution table is generated from the reflected CRC
+polynomial, and the derived-word and framing algorithms are implemented from
+the specification.
+
+The captured byte sequences in m86tool/sm3/recorded.py are wire traffic sent by
+the adapter itself (and the manufacturer's driver): data, not code, included
+because the firmware validates the `h4` fingerprint on every message and a
+channel is opened by replaying known-good frames. Facts and purely functional
+protocol data are not copyrightable; they are recorded here to credit where the
+recovery came from.
+
+Because no `opendash` source is redistributed, the full GPL-3.0 text is not
+included here; it is available with the `opendash` project and at
+https://www.gnu.org/licenses/gpl-3.0.txt. This attribution may be removed if it
+is ever determined that none of the above constitutes a derivative work.
+

@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="m86tool — Itelma M86 ECU tooling over Scanmatik SM2 on Linux" width="100%">
+  <img src="assets/banner.svg" alt="m86tool — Itelma M86 ECU tooling over Scanmatik SM2/SM3 on Linux" width="100%">
 </p>
 
 <p align="center">
   <a href="pyproject.toml"><img alt="Python" src="https://img.shields.io/badge/python-%3E%3D3.10-3776ab.svg?logo=python&logoColor=white"></a>
   <a href="#"><img alt="Platform" src="https://img.shields.io/badge/platform-Linux-FCC624.svg?logo=linux&logoColor=black"></a>
   <a href="#"><img alt="Bus" src="https://img.shields.io/badge/CAN-ISO--TP%20%2F%20UDS-22d3ee.svg"></a>
-  <a href="#"><img alt="Adapter" src="https://img.shields.io/badge/adapter-Scanmatik%20SM2-34d399.svg"></a>
+  <a href="#"><img alt="Adapter" src="https://img.shields.io/badge/adapter-Scanmatik%20SM2%20%2F%20SM3-34d399.svg"></a>
   <a href="pyproject.toml"><img alt="Dependency" src="https://img.shields.io/badge/deps-pyusb%20%2B%20libusb-informational.svg"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-yellow.svg"></a>
 </p>
@@ -15,7 +15,8 @@
 
 <p align="center">
   <b>Own your Itelma M86 ECU.</b><br>
-  Diagnostic and memory tooling over a <b>Scanmatik SM2</b> adapter on Linux —
+  Diagnostic and memory tooling over a <b>Scanmatik SM2</b> (USB) or
+  <b>SM3</b> (Wi-Fi) adapter on Linux —
   no Windows, no proprietary DLLs, pure Python + libusb.
 </p>
 
@@ -24,10 +25,11 @@
 ## Overview
 
 `m86tool` talks to the **Itelma M86** engine ECU (found on modern VAZ/LADA
-platforms) through a **Scanmatik SM2** USB adapter. It re-implements the whole
-stack from the wire up:
+platforms) through a **Scanmatik SM2** (USB) or **SM3** (Wi-Fi) adapter. It
+re-implements the whole stack from the wire up:
 
 - **Scanmatik SM2** USB protocol (reverse-engineered, checksum-checked framing)
+- **Scanmatik SM3** protocol over its own Wi-Fi access point (TCP)
 - **ISO-TP** (ISO 15765-2) transport over classic CAN
 - **UDS** (ISO 14229) diagnostic services
 - A high-level **M86** ECU facade (identify, memory read, DTCs, live data)
@@ -117,12 +119,13 @@ sequenceDiagram
 
 | Item | Detail |
 |---|---|
-| **Adapter** | Scanmatik SM2 / SM2 Pro |
+| **Adapter** | Scanmatik SM2 / SM2 Pro (USB) · Scanmatik SM3 (Wi-Fi/USB) |
 | **USB VID** | `0x20A2` |
-| **Known PIDs** | `0x0001` = SM2 Pro, `0x0002` = SM2 (original) |
+| **Known PIDs** | `0x0001` = SM2 Pro, `0x0002` = SM2 (original) / SM3 |
 | **Endpoints** | EP OUT `0x02`, EP IN `0x81` |
 | **Bus** | Classic CAN, default **500 kbit/s**, 11-bit IDs |
 | **Default UDS IDs** | request `0x7E0`, response `0x7E8` |
+| **SM3 Wi-Fi** | AP `DIRECT-SCANMATIK-#<serial>`, PSK `12345678`, TCP `192.168.81.1:777` |
 
 The OBD connector normally needs **12 V** present for full operation; INIT will
 fail or the adapter stays silent without it.
@@ -209,9 +212,17 @@ Commands:
 | `read` | `<output>` `--address` `--size` `--eeprom` | Read memory to a file |
 | `dtc` | `--clear` | Read or clear diagnostic trouble codes |
 | `live` | `<did>...` `--interval` `--count` | Poll live-data DIDs |
+| `sm3 info` | `--host` `--port` `--wide` | Connect over Wi-Fi, greet, open a channel |
+| `sm3 voltage` | | Read the adapter's own battery voltage |
+| `sm3 poll` | `--interval` `--count` | Poll the bus and print arriving CAN frames |
+| `sm3 monitor` | `--seconds` | Read frames the adapter pushes, without polling |
+| `sm3 send` | `<can_id> <payload>...` `--reply` | Send one CAN request, print the replies |
+| `sm3 request` | `<uds bytes>...` `--tx-id` `--rx-id` | Send a UDS request, print the reassembled reply |
+| `sm3 selftest` | | Offline protocol self-check (no hardware) |
 
 `read` defaults: `--address 0`, `--size 0x110000` (full flash). `--eeprom` uses
-the EEPROM region instead. `live` accepts DIDs as hex (`F190`, `0xF190`).
+the EEPROM region instead. `live` accepts DIDs as hex (`F190`, `0xF190`). The
+`sm3` commands talk over Wi-Fi (see [Scanmatik SM3 over Wi-Fi](#scanmatik-sm3-over-wi-fi)).
 
 ---
 
@@ -363,11 +374,93 @@ Negative responses (`0x7F`) are decoded to their named NRCs, and
 
 ---
 
+## Scanmatik SM3 over Wi-Fi
+
+The **SM3** exposes a plain TCP server on an access point it runs itself. Join
+the AP, connect to the port, and the same messages the USB driver carries inside
+`DeviceIoControl` arrive verbatim over the socket.
+
+| Setting | Value |
+|---|---|
+| SSID | `DIRECT-SCANMATIK-#<serial>` |
+| Passphrase | `12345678` (WPA2) |
+| Host : port | `192.168.81.1:777` |
+
+> **Verification status:** the SM3 layer is validated **offline** against real
+> captured traffic (framing, `h4`/`h8`, the recorded opening and the write
+> builder all reproduce device frames byte for byte). It has **not** yet been
+> exercised against a live adapter and car end to end — treat `sm3` commands as
+> experimental and start with `m86tool sm3 selftest` (which needs no hardware)
+> before suspecting the car. The AP must be joined by the OS; the tool does not
+> join Wi-Fi for you yet.
+
+```bash
+# join the adapter's AP first, then:
+m86tool sm3 selftest                    # offline: verify the build, no hardware
+m86tool sm3 info                        # greet + open a channel
+m86tool sm3 voltage                     # e.g. 12.3 V
+m86tool sm3 send 0x7DF 01 00 --reply 2  # read the supported PIDs
+m86tool sm3 request 22 F1 90            # UDS ReadDataByIdentifier (VIN)
+m86tool sm3 poll --interval 0.5         # poll the bus
+m86tool sm3 monitor --seconds 10        # watch pushed frames
+```
+
+### Message framing
+
+Every message is a 16-byte header followed by `len` bytes of data:
+
+```
+0..1   seq    u16 LE   TCP: always 0xffff
+2..3   token  u16 LE   TCP: always 0
+4..7   h4     u32 LE   fingerprint, checked by the firmware
+8..11  h8     u32 LE   sum of the data words
+12     op
+13..14 len    u16 LE
+15     chk    (op + len_lo + len_hi + 0x55) & 0xff
+16..   data
+```
+
+The detail that costs a session if missed: a message occupies
+`align(16 + len, 4)` bytes on the wire, **not** `16 + len`. Send the short form
+and the device waits for bytes that never arrive and the stream desynchronises.
+
+Two derived words are checked by the firmware:
+
+- **`h8`** is the sum of the twenty covered data bytes read as five
+  little-endian 32-bit words.
+- **`h4`** is a CRC (reflected polynomial `0x9960034C`). It is affine over
+  GF(2), so a new frame's fingerprint is a reference frame's fingerprint XOR the
+  contribution of every data byte that differs. The per-bit contribution table
+  follows from the polynomial by the CRC recurrence — it is generated, not
+  fitted (`m86tool/sm3/h4.py`).
+
+### Session flow
+
+A channel is opened by replaying, byte for byte, the sequence the manufacturer's
+driver sends; a hand-rolled opening is refused because the fingerprint is
+checked. Every reply carries `op 0x00` whatever was asked, so requests go one at
+a time and the reader keeps reading until an `op 0x00` arrives, stashing frame
+deliveries (`op 0xfe`) met on the way. The session is closed with a recorded
+goodbye, so the adapter is released for the next client.
+
+```python
+from m86tool.sm3 import Sm3Client
+
+with Sm3Client() as sm3:                 # join the AP first
+    print(sm3.identity)                  # serial + firmware
+    sm3.send(0x7DF, bytes([0x01, 0x00])) # request supported PIDs
+    sm3.poll()
+    for f in sm3.drain():
+        print(f"0x{f.arbitration_id:03X}  {f.data.hex(' ')}")
+```
+
+---
+
 ## Project layout
 
 ```
 m86tool/
-├── cli.py              # argparse CLI (list/probe/identify/read/dtc/live)
+├── cli.py              # argparse CLI (list/probe/identify/read/dtc/live/sm3)
 ├── m86.py              # M86 ECU facade + memory map + identity
 ├── uds.py              # ISO 14229 UDS client
 ├── isotp.py            # ISO 15765-2 transport
@@ -375,6 +468,15 @@ m86tool/
 │   ├── transport.py    # libusb USB transport
 │   ├── protocol.py     # SM2 frame codec
 │   └── device.py       # SM2 adapter (init, CAN channel, RX thread)
+├── sm3/
+│   ├── transport.py    # TCP transport (stream → messages)
+│   ├── frame.py        # SM3 framing + reframe
+│   ├── h4.py           # derived words: h8 sum + h4 CRC table
+│   ├── write.py        # build signed CAN writes
+│   ├── isotp.py        # ISO-TP reassembly/segmentation
+│   ├── recorded.py     # captured opening/read/closing sequences
+│   ├── selftest.py     # offline protocol self-check
+│   └── device.py       # SM3 client (open channel, poll, send, close)
 └── j2534/
     ├── defs.py         # J2534 v04.04 constants + ctypes structs
     ├── api.py          # PassThru implementation
@@ -429,6 +531,15 @@ Protocol facts reused from the MIT-licensed
 [`sm2can`](https://github.com/aldoguzman97/sm2can) project
 (© 2026 Aldo Guzman); that attribution is preserved in
 [`m86tool/sm2/protocol.py`](m86tool/sm2/protocol.py) and its license text in
+[`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt).
+
+The **SM3** protocol and its captured opening/closing/poll sequences were
+recovered from the adapter by the
+[`opendash`](https://github.com/PabloSoage/opendash) project. `m86tool`
+reimplements the protocol independently in Python from that written description
+— the `h4` contribution table is generated from the CRC polynomial, not copied —
+and includes only device-captured data (wire traffic, which is factual and
+required for interoperability), not `opendash`'s source code. See
 [`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt).
 
 ---
