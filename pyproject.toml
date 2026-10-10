@@ -1,0 +1,16 @@
+[project]
+name = "m86tool"
+version = "0.1.0"
+description = "Own M86 ECU tooling over Scanmatik SM2 on Linux"
+requires-python = ">=3.10"
+dependencies = ["pyusb>=1.2.0"]
+
+[project.scripts]
+m86tool = "m86tool.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["m86tool*"]
