@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="m86tool — Itelma M86 ECU tooling over Scanmatik SM2 on Linux">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0e14"/>
+      <stop offset="0.55" stop-color="#0f1720"/>
+      <stop offset="1" stop-color="#0b1119"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5eead4"/>
+      <stop offset="0.5" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="stripe" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.42" r="0.55">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#1b2a3a" stroke-width="1" opacity="0.55"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="360" rx="18" fill="url(#bg)"/>
+  <rect width="1280" height="360" rx="18" fill="url(#grid)"/>
+  <rect width="1280" height="360" rx="18" fill="url(#glow)"/>
+  <rect x="0" y="0" width="1280" height="6" fill="url(#stripe)"/>
+
+  <!-- left accents -->
+  <g opacity="0.9">
+    <rect x="64" y="76" width="6" height="72" rx="3" fill="url(#stripe)"/>
+  </g>
+
+  <!-- title -->
+  <text x="96" y="140" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="76" font-weight="800" fill="url(#title)" filter="url(#soft)">m86tool</text>
+
+  <text x="98" y="188" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="25" font-weight="500" fill="#c7d5e0">
+    Itelma M86 ECU tooling &#183; Scanmatik SM2 &#183; Linux
+  </text>
+
+  <!-- pipeline chips -->
+  <g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace" font-size="16">
+    <g fill="#0b1119" stroke="#22d3ee" stroke-width="1.4">
+      <rect x="98" y="222" width="118" height="40" rx="8"/>
+      <rect x="232" y="222" width="118" height="40" rx="8"/>
+      <rect x="366" y="222" width="118" height="40" rx="8"/>
+      <rect x="500" y="222" width="118" height="40" rx="8"/>
+    </g>
+    <g fill="#7fe7f5" text-anchor="middle">
+      <text x="157" y="248">USB</text>
+      <text x="291" y="248">SM2</text>
+      <text x="425" y="248">ISO-TP</text>
+      <text x="559" y="248">UDS</text>
+    </g>
+    <g fill="#3b5a70">
+      <text x="216" y="248">&#8594;</text>
+      <text x="350" y="248">&#8594;</text>
+      <text x="484" y="248">&#8594;</text>
+    </g>
+  </g>
+
+  <!-- right: ECU chip art -->
+  <g transform="translate(880 92)">
+    <rect x="0" y="0" width="250" height="188" rx="14" fill="#0c1622" stroke="#1f3a4d" stroke-width="1.5"/>
+    <!-- pins left -->
+    <g stroke="#22d3ee" stroke-width="2.5" opacity="0.85">
+      <line x1="-18" y1="34" x2="0" y2="34"/>
+      <line x1="-18" y1="64" x2="0" y2="64"/>
+      <line x1="-18" y1="94" x2="0" y2="94"/>
+      <line x1="-18" y1="124" x2="0" y2="124"/>
+      <line x1="-18" y1="154" x2="0" y2="154"/>
+    </g>
+    <!-- pins right -->
+    <g stroke="#34d399" stroke-width="2.5" opacity="0.85">
+      <line x1="250" y1="34" x2="268" y2="34"/>
+      <line x1="250" y1="64" x2="268" y2="64"/>
+      <line x1="250" y1="94" x2="268" y2="94"/>
+      <line x1="250" y1="124" x2="268" y2="124"/>
+      <line x1="250" y1="154" x2="268" y2="154"/>
+    </g>
+    <text x="125" y="72" text-anchor="middle"
+          font-family="'Segoe UI', Roboto, Arial, sans-serif" font-size="30"
+          font-weight="700" fill="#e6f6fb">M86</text>
+    <text x="125" y="104" text-anchor="middle"
+          font-family="'SFMono-Regular', Consolas, Menlo, monospace" font-size="14"
+          fill="#5e93a8">0x7E0 &#8644; 0x7E8</text>
+    <g font-family="'SFMono-Regular', Consolas, Menlo, monospace" font-size="13" fill="#376b82">
+      <text x="125" y="138" text-anchor="middle">500 kbit/s</text>
+      <text x="125" y="160" text-anchor="middle">CAN 11-bit</text>
+    </g>
+  </g>
+
+  <!-- can frames decoration -->
+  <g font-family="'SFMono-Regular', Consolas, Menlo, monospace" font-size="13" fill="#2f5568" opacity="0.9">
+    <text x="98" y="312">02 01 00 22 F1 90 00 00</text>
+  </g>
+</svg>
