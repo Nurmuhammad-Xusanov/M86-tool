@@ -10,7 +10,7 @@ from __future__ import annotations
 import unittest
 
 from m86tool.sm3 import frame, h4, isotp, selftest, write
-from m86tool.sm3.device import Sm3Client
+from m86tool.sm3.device import CanFrame, Sm3Client
 from m86tool.sm3.recorded import CLOSING, OPENING, READ, WRITE_TEMPLATE
 
 
@@ -179,6 +179,36 @@ class FrameDelivery(unittest.TestCase):
         self.assertTrue(Sm3Client._worth_keeping(0x5E8))
         self.assertTrue(Sm3Client._worth_keeping(0x540))
         self.assertFalse(Sm3Client._worth_keeping(0x123))
+
+
+class Sm3AdapterIntegration(unittest.TestCase):
+    def test_can_frame_duck_typing(self):
+        f = CanFrame(0x7E8, b"\x02\x50\x03", is_extended_id=False, timestamp=1.23)
+        self.assertEqual(f.arbitration_id, 0x7E8)
+        self.assertEqual(f.data, b"\x02\x50\x03")
+        self.assertFalse(f.is_extended_id)
+        self.assertEqual(f.timestamp, 1.23)
+
+    def test_sm3_client_recv_from_buffer(self):
+        client = Sm3Client.__new__(Sm3Client)
+        client._frames = [CanFrame(0x7E8, b"\x01\x02")]
+        f = client.recv(timeout=0.01)
+        self.assertIsNotNone(f)
+        self.assertEqual(f.arbitration_id, 0x7E8)
+        self.assertEqual(f.data, b"\x01\x02")
+        self.assertIsNone(client.recv(timeout=0.001))
+
+    def test_cli_parsing_sm3_flags(self):
+        from m86tool.cli import build_parser
+        p = build_parser()
+        args = p.parse_args(["identify", "--sm3"])
+        self.assertTrue(args.sm3)
+        self.assertEqual(args.adapter, "auto")
+
+        args2 = p.parse_args(["read", "flash.bin", "--adapter", "sm3", "--host", "192.168.1.100", "--port", "999"])
+        self.assertEqual(args2.adapter, "sm3")
+        self.assertEqual(args2.host, "192.168.1.100")
+        self.assertEqual(args2.port, 999)
 
 
 if __name__ == "__main__":

@@ -53,9 +53,11 @@ class Voltages:
 class CanFrame:
     arbitration_id: int
     data: bytes
+    is_extended_id: bool = False
+    timestamp: float = 0.0
 
     def __repr__(self) -> str:
-        return f"CanFrame(id=0x{self.arbitration_id:03X}, data={self.data.hex(' ')})"
+        return f"CanFrame(id=0x{self.arbitration_id:03X}, data={self.data.hex(' ')}, ext={self.is_extended_id})"
 
 
 class Sm3Client:
@@ -114,6 +116,17 @@ class Sm3Client:
                 and self._exchange(OPENING[6], STEP_TIMEOUT) is not None
             )
 
+    def bring_up(self) -> Identity:
+        """Lifecycle helper matching SM2 interface: connect and return identity."""
+        if not self.connected:
+            self.connect()
+        return self.identity or Identity("unknown", "unknown")
+
+    def open_can(self, bitrate: int = 500000, narrow: bool = True) -> int:
+        """Lifecycle helper matching SM2 interface: open the CAN channel."""
+        self.open_channel(narrow=narrow)
+        return 0
+
     def close(self) -> None:
         """Hand the channel back before dropping the socket.
 
@@ -154,7 +167,7 @@ class Sm3Client:
 
     def receive(self, timeout: float) -> int:
         """Read whatever the device is pushing, without asking it for anything."""
-        if not self.link.connected:
+        if not getattr(self, "link", None) or not self.link.connected:
             return 0
         before = len(self._frames)
         deadline = time.monotonic() + timeout
@@ -187,13 +200,30 @@ class Sm3Client:
             flags=int.from_bytes(d[4:6], "little"),
         )
 
-    def send(self, can_id: int, payload: bytes) -> None:
-        """Put a request on the bus as an ISO-TP single frame."""
-        self._exchange(write.write(can_id, payload), STEP_TIMEOUT)
+    def send(self, can_id: int, payload: bytes, extended: bool = False) -> None:
+        """Send on CAN bus. If 8 bytes, sent as raw CAN frame; otherwise framed as ISO-TP single frame."""
+        if len(payload) == 8:
+            self.send_frame(can_id, payload)
+        else:
+            self._exchange(write.write(can_id, payload), STEP_TIMEOUT)
 
     def send_frame(self, can_id: int, frame_bytes: bytes) -> None:
         """Put a whole CAN frame on the bus, PCI byte included."""
         self._exchange(write.write_frame(can_id, frame_bytes), STEP_TIMEOUT)
+
+    def recv(self, timeout: float = 1.0) -> Optional[CanFrame]:
+        """Receive the next CAN frame, waiting up to timeout seconds."""
+        if self._frames:
+            return self._frames.pop(0)
+        if not getattr(self, "link", None) or not self.link.connected:
+            return None
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            slice_timeout = min(0.05, max(0.001, deadline - time.monotonic()))
+            self.receive(slice_timeout)
+            if self._frames:
+                return self._frames.pop(0)
+        return None
 
     def uds_request(self, payload: bytes, req_id: int = 0x7E0,
                     resp_id: int = 0x7E8, timeout: float = 2.0) -> Optional[bytes]:

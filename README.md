@@ -162,6 +162,34 @@ After this the CLI entry point is available:
 
 ## Quick start
 
+### With Scanmatik SM3 (Wi-Fi)
+
+1. Join the adapter's Wi-Fi access point:
+   * **SSID**: `DIRECT-SCANMATIK-#<serial>`
+   * **Password**: `12345678`
+2. Run diagnostic and ECU commands:
+
+```bash
+# Probe adapter greeting & check 12V battery voltage
+m86tool probe --sm3
+
+# Read ECU identification (VIN, part number, versions...)
+m86tool identify --sm3
+
+# Read the full flash image or EEPROM
+m86tool read m86_full.bin --sm3
+m86tool read m86_eeprom.bin --sm3 --eeprom
+
+# Read and clear trouble codes
+m86tool dtc --sm3
+m86tool dtc --clear --sm3
+
+# Watch live data
+m86tool live F190 F187 --sm3 --interval 0.5
+```
+
+### With Scanmatik SM2 / USB
+
 ```bash
 # 1. Is the adapter connected and visible?
 m86tool list
@@ -169,10 +197,10 @@ m86tool list
 # 2. Open it and run INIT + ECHO, print device info
 m86tool probe
 
-# 3. Read the ECU identification (VIN, part number, versions...)
+# 3. Read the ECU identification
 m86tool identify
 
-# 4. Read the full flash image to a file
+# 4. Read the full flash image
 m86tool read m86_full.bin
 
 # 5. Read only the EEPROM region
@@ -182,7 +210,7 @@ m86tool read m86_eeprom.bin --eeprom
 m86tool dtc
 m86tool dtc --clear
 
-# 7. Watch live data (VIN DID + a manufacturer DID)
+# 7. Watch live data
 m86tool live F190 F187 --interval 0.5
 ```
 
@@ -191,7 +219,7 @@ m86tool live F190 F187 --interval 0.5
 ## CLI reference
 
 ```
-m86tool [-v] [--pid 0x0001] [--bitrate 500000] <command> ...
+m86tool [-v] [--adapter auto|sm2|sm3] [--sm3] [--host IP] [--port PORT] <command> ...
 ```
 
 Global options:
@@ -199,6 +227,10 @@ Global options:
 | Option | Default | Description |
 |---|---|---|
 | `-v`, `--verbose` | off | Verbose (DEBUG) logging |
+| `--adapter` | `auto` | Adapter type: `auto`, `sm2` (USB), or `sm3` (Wi-Fi) |
+| `--sm3` | off | Use Scanmatik SM3 over Wi-Fi (shortcut for `--adapter sm3`) |
+| `--host` | `192.168.81.1` | SM3 Wi-Fi host address |
+| `--port` | `777` | SM3 Wi-Fi TCP port |
 | `--pid` | auto | Force the USB PID (`0x0001` / `0x0002`) |
 | `--bitrate` | `500000` | CAN bitrate in bit/s |
 
@@ -206,8 +238,8 @@ Commands:
 
 | Command | Arguments | Description |
 |---|---|---|
-| `list` | — | List connected Scanmatik adapters |
-| `probe` | — | Open adapter, run INIT/ECHO, print firmware/HW info |
+| `list` | — | List connected Scanmatik USB adapters |
+| `probe` | — | Open adapter, run INIT/greeting, print firmware/HW info & voltage |
 | `identify` | — | Read M86 identification via UDS DIDs |
 | `read` | `<output>` `--address` `--size` `--eeprom` | Read memory to a file |
 | `dtc` | `--clear` | Read or clear diagnostic trouble codes |
@@ -234,7 +266,8 @@ The library is importable on its own — the CLI is a thin wrapper.
 from m86tool.m86 import M86
 
 m = M86()
-m.connect(bitrate=500000)          # bring up SM2 + open CAN
+# Connect over SM3 Wi-Fi (or adapter="sm2" for USB, adapter="auto" for auto-detect)
+m.connect(adapter="sm3")
 
 idn = m.identify()
 print(idn.vin, idn.part_number, idn.sw_version)

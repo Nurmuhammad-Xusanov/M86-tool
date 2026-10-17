@@ -11,12 +11,16 @@ M86 flash layout (from ./Documents/m86.md):
 from __future__ import annotations
 
 import logging
+import socket
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional
 
 from .isotp import IsoTp, IsoTpError
 from .sm2.device import SM2, SM2Error
+from .sm2.transport import SM2_VID, USBTransport
+from .sm3.device import Sm3Client, Sm3Error
+from .sm3.transport import DEFAULT_HOST, DEFAULT_PORT
 from .uds import SID_READ_DID, UdsClient, UdsError, dtc_status_str
 
 log = logging.getLogger(__name__)
@@ -29,6 +33,19 @@ FLASH_SIZE = 0x110000
 EEPROM_BASE = 0x040000
 EEPROM_SIZE = 0x10000
 CALIB_BASE = 0x080000
+
+
+def is_sm3_reachable(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 0.3) -> bool:
+    """Quick probe to check if an SM3 Wi-Fi adapter is reachable on TCP."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((host, port))
+        s.close()
+        return True
+    except (OSError, socket.timeout):
+        return False
+
 
 # Standard ISO 14229 DIDs (best effort; M86 also exposes manufacturer DIDs).
 STANDARD_DIDS = {
@@ -67,23 +84,52 @@ class M86:
     def __init__(self, tx_id: int = DEFAULT_TX_ID, rx_id: int = DEFAULT_RX_ID):
         self.tx_id = tx_id
         self.rx_id = rx_id
+        self.adapter = None
         self.sm2: Optional[SM2] = None
+        self.sm3: Optional[Sm3Client] = None
         self.tp: Optional[IsoTp] = None
         self.uds: Optional[UdsClient] = None
 
     # ---- connection ----
-    def connect(self, bitrate: int = 500000,
-                pid: Optional[int] = None) -> None:
-        self.sm2 = SM2(pid=pid)
-        self.sm2.bring_up()
-        rc = self.sm2.open_can(bitrate)
-        log.info("CAN open response: %s", rc)
-        self.tp = IsoTp(self.sm2, self.tx_id, self.rx_id)
+    def connect(self, adapter: str = "auto", bitrate: int = 500000,
+                pid: Optional[int] = None, host: str = DEFAULT_HOST,
+                port: int = DEFAULT_PORT) -> None:
+        adapter_type = adapter.lower()
+        if adapter_type == "auto":
+            if is_sm3_reachable(host, port):
+                adapter_type = "sm3"
+            else:
+                adapter_type = "sm2"
+
+        if adapter_type == "sm3":
+            log.info("Connecting to Scanmatik SM3 via Wi-Fi (%s:%d)...", host, port)
+            self.sm3 = Sm3Client(host=host, port=port)
+            self.sm3.bring_up()
+            self.sm3.open_can(bitrate)
+            if not (0x7E8 <= self.rx_id < 0x7F0):
+                self.sm3.keep_all = True
+            self.adapter = self.sm3
+            self.sm2 = self.sm3  # For backward-compatibility
+        else:
+            log.info("Connecting to Scanmatik SM2 via USB...")
+            self.sm2 = SM2(pid=pid)
+            self.sm2.bring_up()
+            rc = self.sm2.open_can(bitrate)
+            log.info("CAN open response: %s", rc)
+            self.adapter = self.sm2
+
+        self.tp = IsoTp(self.adapter, self.tx_id, self.rx_id)
         self.uds = UdsClient(self.tp)
 
     def close(self) -> None:
-        if self.sm2:
+        if self.adapter:
+            self.adapter.close()
+            self.adapter = None
+            self.sm2 = None
+            self.sm3 = None
+        elif self.sm2:
             self.sm2.close()
+            self.sm2 = None
 
     # ---- identification ----
     def identify(self, extended_session: bool = True,

@@ -33,10 +33,33 @@ def cmd_list(_args) -> int:
     return 0
 
 
+def _adapter_choice(args) -> str:
+    if getattr(args, "sm3", False):
+        return "sm3"
+    return getattr(args, "adapter", "auto")
+
+
 def cmd_probe(args) -> int:
+    adapter = _adapter_choice(args)
+    if adapter == "sm3" or (adapter == "auto" and not USBTransport.list_devices(SM2_VID)):
+        try:
+            sm3 = Sm3Client(host=getattr(args, "host", DEFAULT_HOST),
+                            port=getattr(args, "port", DEFAULT_PORT))
+            ident = sm3.connect()
+            print("Scanmatik SM3 responded to GREETING (Wi-Fi)")
+            print(f"  serial={ident.serial}  fw={ident.firmware}")
+            v = sm3.voltages()
+            if v:
+                print(f"  battery: {v.battery_millivolts / 1000:.1f} V (flags=0x{v.flags:04X})")
+            sm3.close()
+            return 0
+        except Exception as e:
+            if adapter == "sm3":
+                raise
+            # In auto mode, fall through to try USB if reachable check failed
     sm2 = SM2(pid=args.pid)
     info = sm2.bring_up()
-    print("adapter responded to INIT")
+    print("adapter responded to INIT (USB)")
     if info:
         print(f"  hw_id={info.hardware_id_hex}  fw={info.firmware_str}  "
               f"hw={info.hardware_str}")
@@ -47,7 +70,9 @@ def cmd_probe(args) -> int:
 
 def cmd_identify(args) -> int:
     m = M86()
-    m.connect(bitrate=args.bitrate, pid=args.pid)
+    m.connect(adapter=_adapter_choice(args), bitrate=args.bitrate, pid=args.pid,
+              host=getattr(args, "host", DEFAULT_HOST),
+              port=getattr(args, "port", DEFAULT_PORT))
     try:
         idn = m.identify()
         print("M86 identification:")
@@ -68,7 +93,9 @@ def cmd_identify(args) -> int:
 def cmd_read(args) -> int:
     out = Path(args.output)
     m = M86()
-    m.connect(bitrate=args.bitrate, pid=args.pid)
+    m.connect(adapter=_adapter_choice(args), bitrate=args.bitrate, pid=args.pid,
+              host=getattr(args, "host", DEFAULT_HOST),
+              port=getattr(args, "port", DEFAULT_PORT))
     try:
         def progress(done: int, total: int) -> None:
             pct = 100.0 * done / total
@@ -94,7 +121,9 @@ def _fmt_dtc(row: dict) -> str:
 
 def cmd_dtc(args) -> int:
     m = M86()
-    m.connect(bitrate=args.bitrate, pid=args.pid)
+    m.connect(adapter=_adapter_choice(args), bitrate=args.bitrate, pid=args.pid,
+              host=getattr(args, "host", DEFAULT_HOST),
+              port=getattr(args, "port", DEFAULT_PORT))
     try:
         if args.clear:
             m.clear_dtcs()
@@ -114,7 +143,9 @@ def cmd_dtc(args) -> int:
 def cmd_live(args) -> int:
     dids = [int(x, 0) for x in args.dids]
     m = M86()
-    m.connect(bitrate=args.bitrate, pid=args.pid)
+    m.connect(adapter=_adapter_choice(args), bitrate=args.bitrate, pid=args.pid,
+              host=getattr(args, "host", DEFAULT_HOST),
+              port=getattr(args, "port", DEFAULT_PORT))
     last_sample = {}
     try:
         def cb(ts: float, did: int, payload: bytes) -> None:
@@ -255,30 +286,41 @@ def cmd_sm3_selftest(_args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("-v", "--verbose", action="store_true")
+    common.add_argument("--pid", type=lambda x: int(x, 0), default=None,
+                        help="force USB PID (default: auto 0x0001/0x0002)")
+    common.add_argument("--bitrate", type=int, default=500000)
+    common.add_argument("--adapter", choices=["auto", "sm2", "sm3"], default="auto",
+                        help="adapter to use: sm2 (USB), sm3 (Wi-Fi), or auto (default: auto)")
+    common.add_argument("--sm3", action="store_true",
+                        help="use Scanmatik SM3 over Wi-Fi (shortcut for --adapter sm3)")
+    common.add_argument("--host", default=DEFAULT_HOST,
+                        help=f"SM3 Wi-Fi host (default: {DEFAULT_HOST})")
+    common.add_argument("--port", type=int, default=DEFAULT_PORT,
+                        help=f"SM3 Wi-Fi port (default: {DEFAULT_PORT})")
+
     p = argparse.ArgumentParser(prog="m86tool",
-                                description="Own M86 tooling over Scanmatik SM2/SM3.")
-    p.add_argument("-v", "--verbose", action="store_true")
-    p.add_argument("--pid", type=lambda x: int(x, 0), default=None,
-                   help="force USB PID (default: auto 0x0001/0x0002)")
-    p.add_argument("--bitrate", type=int, default=500000)
+                                description="Own M86 tooling over Scanmatik SM2/SM3.",
+                                parents=[common])
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("list", help="list Scanmatik adapters").set_defaults(func=cmd_list)
-    sub.add_parser("probe", help="open adapter and run init/echo").set_defaults(func=cmd_probe)
-    sub.add_parser("identify", help="read M86 identification").set_defaults(func=cmd_identify)
+    sub.add_parser("probe", parents=[common], help="open adapter and run init/echo").set_defaults(func=cmd_probe)
+    sub.add_parser("identify", parents=[common], help="read M86 identification").set_defaults(func=cmd_identify)
 
-    rd = sub.add_parser("read", help="read ECU memory to a file")
+    rd = sub.add_parser("read", parents=[common], help="read ECU memory to a file")
     rd.add_argument("output")
     rd.add_argument("--address", type=lambda x: int(x, 0), default=0)
     rd.add_argument("--size", type=lambda x: int(x, 0), default=FLASH_SIZE)
     rd.add_argument("--eeprom", action="store_true", help="read EEPROM region")
     rd.set_defaults(func=cmd_read)
 
-    dtc = sub.add_parser("dtc", help="read or clear M86 DTCs")
+    dtc = sub.add_parser("dtc", parents=[common], help="read or clear M86 DTCs")
     dtc.add_argument("--clear", action="store_true", help="clear all DTCs")
     dtc.set_defaults(func=cmd_dtc)
 
-    lv = sub.add_parser("live", help="poll live data DIDs via UDS 0x22")
+    lv = sub.add_parser("live", parents=[common], help="poll live data DIDs via UDS 0x22")
     lv.add_argument("dids", nargs="+", help="DIDs as hex, e.g. F190 F187")
     lv.add_argument("--interval", type=float, default=0.5)
     lv.add_argument("--count", type=int, default=0,
